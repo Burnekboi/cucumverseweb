@@ -440,6 +440,7 @@ useEffect(() => {
               }
               return prev;
             });
+            setIsDeploying(false); // <--- Add this! Unlocks the Launch Button
           }
           if (data.isTrading !== undefined && isTrading) {
              if (data.isTrading === false) setIsTrading(false);
@@ -476,6 +477,7 @@ useEffect(() => {
           body: JSON.stringify({ chatId: detectedChatId, action: 'SELL_ALL' })
         });
         setIsTrading(false);
+        setIsDeploying(false); // Unlock launch button
         setDeployResult(null);
         setLogs(prev => [...prev, { status: 'success', isSell: true, message: '💥 Dump initialized. Ready for new token.' }]);
       } catch (e) {
@@ -702,16 +704,30 @@ useEffect(() => {
                 <TrendingUp size={14} className="text-emerald-400" /> Market Intelligence
               </h3>
               <div className="flex flex-col items-end gap-1">
-                 <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-zinc-800">
                    <span className="text-emerald-500 font-mono text-xs font-bold">
                      {(deployResult?.tokenAddress && deployResult.tokenAddress.length > 30) 
                        ? `${deployResult.tokenAddress.slice(0,4)}...${deployResult.tokenAddress.slice(-4)}` 
                        : "$---"}
                    </span>
+                   {deployResult?.tokenAddress && deployResult.tokenAddress.length > 30 && (
+                     <button 
+                       onClick={() => {
+                         navigator.clipboard.writeText(deployResult.tokenAddress);
+                         alert("Contract Address Copied!");
+                       }}
+                       className="text-zinc-500 hover:text-emerald-400 transition-colors ml-1"
+                     >
+                       <Copy size={12} />
+                     </button>
+                   )}
+                   {deployResult && (
+                     <div className="w-[1px] h-3 bg-zinc-700 mx-1" />
+                   )}
                    {deployResult && (
                      <button 
                        onClick={() => { setDeployResult(null); setIsTrading(false); }}
-                       className="text-zinc-500 hover:text-red-500 transition-colors ml-1"
+                       className="text-zinc-500 hover:text-red-500 transition-colors"
                      >
                        <X size={14} />
                      </button>
