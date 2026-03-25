@@ -254,7 +254,7 @@ const WalletItem = ({ wallet, isSelected, onSelect }) => {
 };
 
 // LIVE TERMINAL LOGS COMPONENT
-const LogScreen = ({ logs, onStop, onSellAll }) => {
+const LogScreen = ({ logs, onStop, onSellAll, onClear }) => {
   const scrollRef = useRef(null);
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -264,10 +264,13 @@ const LogScreen = ({ logs, onStop, onSellAll }) => {
     <div className="flex flex-col w-full gap-3 animate-in fade-in duration-500">
       <div className="flex gap-2">
         <button onClick={onStop} className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg text-xs uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-          <span>✋</span> Stop Trade
+          <span>✋</span> Stop
         </button>
         <button onClick={onSellAll} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-xs uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-          <span>💥</span> Sell All
+          <span>💥</span> Dump
+        </button>
+        <button onClick={onClear} className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 rounded-lg text-xs uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+          <span>🧹</span> Clear
         </button>
       </div>
 
@@ -284,8 +287,14 @@ const LogScreen = ({ logs, onStop, onSellAll }) => {
           <div key={index} className="mb-3 border-l border-gray-800 pl-2 animate-in slide-in-from-left-2 duration-300">
             {log.status === 'success' ? (
               <div className={log.isSell ? "text-yellow-500" : "text-green-500"}>
-                <span className="font-bold">[{log.isSell ? '💰' : '✓'}] Wallet #{log.walletNum}</span>
-                <div className="text-gray-400 pl-4">{log.isSell ? '📉 Sold' : '📈 Bought'} {log.tokenAmount} tokens</div>
+                {log.message ? (
+                  <span className="font-bold">{log.message}</span>
+                ) : (
+                  <>
+                    <span className="font-bold">[{log.isSell ? '💰' : '✓'}] Wallet #{log.walletNum}</span>
+                    <div className="text-gray-400 pl-4">{log.isSell ? '📉 Sold' : '📈 Bought'} {log.tokenAmount} tokens</div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="text-red-500 italic">[!] {log.message}</div>
@@ -813,7 +822,7 @@ useEffect(() => {
               </div>
             </div>
           ) : (
-            <LogScreen logs={logs} onStop={handleStop} onSellAll={handleSellAll} />
+            <LogScreen logs={logs} onStop={handleStop} onSellAll={handleSellAll} onClear={() => setLogs([])} />
           )}
 
           {isTrading && (
