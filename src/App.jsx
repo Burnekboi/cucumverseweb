@@ -267,7 +267,7 @@ const LogScreen = ({ logs, onStop, onSellAll, onClear }) => {
           <span>✋</span> Stop
         </button>
         <button onClick={onSellAll} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-xs uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-          <span>💥</span> Dump
+          <span>💥</span> Sell All
         </button>
         <button onClick={onClear} className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 rounded-lg text-xs uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
           <span>🧹</span> Clear
