@@ -23,7 +23,12 @@ import {
 import './App.css';
 
 // --- Constants ---
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://cucumversebot-production.up.railway.app';
+// In production (Vercel), use relative /api paths — Vercel rewrites them to Railway.
+// In local dev, VITE_API_URL points to localhost:3000 via the vite proxy.
+// Never call Railway directly from the browser — that causes CORS failures.
+const API_BASE_URL = import.meta.env.DEV
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:3000')
+  : '';
 const rpcList = (import.meta.env.VITE_RPC_URL || "").split(',').map(url => url.trim());
 
 function getSmartConnection() {
