@@ -75,7 +75,16 @@ const StarField = () => {
   );
 };
 
-const MainWalletCard = ({ address = "", balance = 0 }) => {
+const MainWalletCard = ({ address = "", balance = 0, onRefresh }) => {
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    if (onRefresh) await onRefresh();
+    setTimeout(() => setRefreshing(false), 1000);
+  };
+
   // 1. Safety check for slicing (Prevents the Blank Page crash if address is null/empty)
   const displayAddress = address && address !== "No Wallet Found"
     ? `${address.slice(0, 6)}...${address.slice(-6)}` 
@@ -130,9 +139,10 @@ const MainWalletCard = ({ address = "", balance = 0 }) => {
           </button>
           
           <button 
+            onClick={handleRefresh}
             className="flex items-center justify-center gap-2 py-2.5 bg-zinc-950/50 border border-zinc-800 rounded-xl hover:border-emerald-500/50 transition-all group/btn"
           >
-            <RefreshCw size={14} className="text-zinc-500 group-hover/btn:text-emerald-400 transition-colors" />
+            <RefreshCw size={14} className={`transition-all ${refreshing ? 'animate-spin text-emerald-400' : 'text-zinc-500 group-hover/btn:text-emerald-400'}`} />
             <span className="text-[10px] font-black uppercase text-zinc-400 group-hover/btn:text-zinc-200">Refresh</span>
           </button>
         </div>
@@ -391,60 +401,69 @@ useEffect(() => {
   };
   loadTradeConfig();
 
-  const syncDashboard = async () => {
-  // If we don't even have the main address yet, don't bother the RPC
-  const addr = new URLSearchParams(window.location.search).get('wallet') || urlAddr;
-  if (!addr) return;
+  const syncDashboard = async (currentAddr) => {
+    const addr = currentAddr || new URLSearchParams(window.location.search).get('wallet') || urlAddr;
+    if (!addr) return;
 
-  try {
-    // Attempt internal API fetch first for guaranteed syncing
-    let mB = 0;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/balance/${addr}`);
-      if (res.ok) {
-        const data = await res.json();
-        mB = data.balance || 0;
-      } else {
-        throw new Error("Internal API unavailable");
-      }
-    } catch (e) {
-      // Fallback to Smart RPC Connection directly
-      const conn = getSmartConnection();
-      mB = await getSolanaBalance(conn, addr);
-    }
-
-    setBalance(p => (mB === 0 && p > 0) ? p : mB);
-
-    // Only sync if we actually have wallets in state
-    setWallets(async (prev) => {
-      if (!prev || prev.length === 0) return prev; // Don't sync an empty fleet
-      
-      const conn = getSmartConnection();
-      const updated = await Promise.all(prev.map(async (w) => {
-        let b = 0;
-        try {
-           const resBot = await fetch(`${API_BASE_URL}/api/balance/${w.address}`);
-           if (resBot.ok) {
-              const d = await resBot.json();
-              b = d.balance || 0;
-           } else throw new Error();
-        } catch(e) {
-           b = await getSolanaBalance(conn, w.address);
+      // Fetch main wallet balance — API first, RPC fallback
+      let mB = 0;
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/balance/${addr}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) mB = data.balance || 0;
+          else throw new Error('API returned failure');
+        } else {
+          throw new Error(`HTTP ${res.status}`);
         }
-        return { ...w, balance: (b === 0 && w.balance > 0) ? w.balance : b };
-      }));
-      
-      setWallets(updated);
-      return updated;
-    });
-  } catch (err) {
-    console.error("Sync error:", err);
-  }
-};
+      } catch (e) {
+        console.warn('Balance API failed, falling back to RPC:', e.message);
+        const conn = getSmartConnection();
+        mB = await getSolanaBalance(conn, addr);
+      }
 
-  syncDashboard();
-  const interval = setInterval(syncDashboard, 30000);
-  return () => { window.removeEventListener('mousemove', handleMouseMove); clearInterval(interval); };
+      setBalance(mB);
+
+      // Sync bot wallet balances without using async state updater
+      setWallets(prev => {
+        if (!prev || prev.length === 0) return prev;
+        // Fire async update, then call setWallets with real values
+        (async () => {
+          const conn = getSmartConnection();
+          const updated = await Promise.all(prev.map(async (w) => {
+            let b = 0;
+            try {
+              const r = await fetch(`${API_BASE_URL}/api/balance/${w.address}`);
+              if (r.ok) {
+                const d = await r.json();
+                if (d.success) b = d.balance || 0;
+                else throw new Error();
+              } else throw new Error();
+            } catch {
+              b = await getSolanaBalance(conn, w.address);
+            }
+            return { ...w, balance: b };
+          }));
+          setWallets(updated);
+        })();
+        return prev; // keep current state until async resolves
+      });
+    } catch (err) {
+      console.error('Sync error:', err);
+    }
+  };
+
+  // Expose syncDashboard so the Refresh button can call it
+  window.__cucumSyncDashboard = () => syncDashboard(urlAddr);
+
+  syncDashboard(urlAddr);
+  const interval = setInterval(() => syncDashboard(urlAddr), 30000);
+  return () => {
+    window.removeEventListener('mousemove', handleMouseMove);
+    clearInterval(interval);
+    delete window.__cucumSyncDashboard;
+  };
 }, []);
 
 // STATUS POLLING LOOP
@@ -711,7 +730,12 @@ useEffect(() => {
         </div>
       </div>
 
-      <MainWalletCard key={walletAddress + balance} address={walletAddress} balance={balance} />
+      <MainWalletCard
+        key={walletAddress + balance}
+        address={walletAddress}
+        balance={balance}
+        onRefresh={() => window.__cucumSyncDashboard?.()}
+      />
 
       {/* TABS NAVIGATION */}
       <div className="flex gap-4 sm:gap-8 mb-8 border-b border-zinc-800/50 overflow-x-auto no-scrollbar">
