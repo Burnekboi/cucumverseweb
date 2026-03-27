@@ -23,7 +23,7 @@ import {
 import './App.css';
 
 // --- Constants ---
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://cucumversebot-production.up.railway.app';
 const rpcList = (import.meta.env.VITE_RPC_URL || "").split(',').map(url => url.trim());
 
 function getSmartConnection() {
