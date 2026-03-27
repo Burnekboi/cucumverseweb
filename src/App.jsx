@@ -577,7 +577,7 @@ useEffect(() => {
   
   const botFooter = `\n\n🚀 Created via Cucumverse Bot\n🔗 t.me/cucumverse_bot`;
 
-  // Compress image to max ~300KB before sending
+  // Compress image aggressively — target < 200KB base64
   let compressedImage = tokenImage;
   if (tokenImage && tokenImage.startsWith('data:image')) {
     try {
@@ -585,13 +585,20 @@ useEffect(() => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX = 512;
+          // Cap at 400px and use 0.5 quality to keep payload small
+          const MAX = 400;
           const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
-          canvas.width = img.width * ratio;
-          canvas.height = img.height * ratio;
+          canvas.width  = Math.floor(img.width  * ratio);
+          canvas.height = Math.floor(img.height * ratio);
           canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL('image/jpeg', 0.7));
+          let result = canvas.toDataURL('image/jpeg', 0.5);
+          // If still > 300KB base64, drop quality further
+          if (result.length > 400000) {
+            result = canvas.toDataURL('image/jpeg', 0.3);
+          }
+          resolve(result);
         };
+        img.onerror = () => resolve(tokenImage); // fallback to original on error
         img.src = tokenImage;
       });
     } catch (e) {
@@ -623,19 +630,40 @@ useEffect(() => {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    // 90s — IPFS upload + PumpPortal + Railway cold start can be slow
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-    const response = await fetch(`${API_BASE_URL}/api/deploy`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
+    let response;
+    try {
+      response = await fetch(`${API_BASE_URL}/api/deploy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      if (fetchErr.name === 'AbortError') {
+        // Timed out — but the server may still be processing
+        setLogs(prev => [
+          ...prev,
+          { status: 'success', message: '⏳ Request sent — server is processing. Watch your Telegram for updates.' }
+        ]);
+        setDeployResult({
+          tokenAddress: "Awaiting Mint...",
+          tokenName: tokenName.trim(),
+          symbol: symbol.trim().toUpperCase()
+        });
+        return;
+      }
+      // True network failure (no internet, CORS, server down)
+      throw new Error(`Network error: ${fetchErr.message}. Check that the bot server is running.`);
+    }
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server error ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Server error ${response.status}`);
     }
 
     const result = await response.json();
@@ -656,12 +684,12 @@ useEffect(() => {
 
   } catch (err) {
     console.error("API Error:", err);
-    const msg = err.name === 'AbortError' ? 'Request timed out (30s). Check your Telegram for deployment status.' : err.message;
     setLogs(prev => [
-      ...prev, 
-      { status: 'failed', message: `❌ Connection Error: ${msg}` }
+      ...prev,
+      { status: 'failed', message: `❌ ${err.message}` }
     ]);
     setIsDeploying(false);
+    setIsTrading(false);
   }
 };
 
