@@ -325,6 +325,7 @@ export default function App() {
   const [description, setDescription] = useState('');
   const [tokenImage, setTokenImage] = useState(null);
   const [autoBuy, setAutoBuy] = useState(false);
+  const [jitoBundle, setJitoBundle] = useState(false);
   const [initialBuyAmount, setInitialBuyAmount] = useState('0.1');
 
   // Socials
@@ -570,6 +571,7 @@ useEffect(() => {
       description: (description || "") + botFooter,
       main_wallet: walletAddress,
       auto_buy: autoBuy,
+      jito_bundle: jitoBundle,
       initial_buy_sol: parseFloat(initialBuyAmount) || 0, 
       image_data: tokenImage, 
       links: {
@@ -740,6 +742,16 @@ useEffect(() => {
                 <ChevronRight size={16} />
               </button>
             </div>
+            <button onClick={() => setJitoBundle(!jitoBundle)} className={`w-full p-4 rounded-2xl border-2 flex items-center justify-between ${jitoBundle ? 'border-violet-500 bg-violet-500/10' : 'border-zinc-800 bg-zinc-900/40'}`}>
+              <div className="flex items-center gap-2">
+                <TrendingUp size={18} className={jitoBundle ? 'text-violet-400' : 'text-zinc-500'} />
+                <div className="text-left">
+                  <span className="text-sm font-bold block">Jito Bundle</span>
+                  <span className="text-[10px] text-zinc-500">Bot wallets buy atomically with token creation</span>
+                </div>
+              </div>
+              <div className={`w-8 h-4 rounded-full relative flex-shrink-0 ${jitoBundle ? 'bg-violet-500' : 'bg-zinc-700'}`}><div className={`absolute top-1 w-2 h-2 bg-white rounded-full transition-all ${jitoBundle ? 'right-1' : 'left-1'}`} /></div>
+            </button>
           </div>
 
           <div className={`space-y-4 animate-in slide-in-from-top-4 duration-500 transition-all ${!deployResult?.tokenAddress ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
