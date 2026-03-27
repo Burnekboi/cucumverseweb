@@ -540,13 +540,11 @@ useEffect(() => {
   };
 
   const handleConfirmDeploy = async () => {
-  // 1. Basic Validation
   if (!tokenName || !symbol) {
     alert("Please enter a Token Name and Symbol.");
     return;
   }
 
-  // 2. UI state updates - Keeping the user informed while the "Kitchen" works
   setShowDeployConfirm(false);
   setIsDeploying(true);    
   setIsTrading(true);     
@@ -559,8 +557,28 @@ useEffect(() => {
   ]);
   
   const botFooter = `\n\n🚀 Created via Cucumverse Bot\n🔗 t.me/cucumverse_bot`;
-  
-  // 3. INTELLIGENT USER DETECTION (Now using memoized global) 
+
+  // Compress image to max ~300KB before sending
+  let compressedImage = tokenImage;
+  if (tokenImage && tokenImage.startsWith('data:image')) {
+    try {
+      compressedImage = await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX = 512;
+          const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
+          canvas.width = img.width * ratio;
+          canvas.height = img.height * ratio;
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = tokenImage;
+      });
+    } catch (e) {
+      console.warn('Image compression failed, using original');
+    }
+  }
 
   const payload = {
     chatId: detectedChatId, 
@@ -573,7 +591,7 @@ useEffect(() => {
       auto_buy: autoBuy,
       jito_bundle: jitoBundle,
       initial_buy_sol: parseFloat(initialBuyAmount) || 0, 
-      image_data: tokenImage, 
+      image_data: compressedImage, 
       links: {
         twitter: twitter || "",
         telegram: telegram || "",
@@ -585,18 +603,20 @@ useEffect(() => {
   };
 
   try {
-    // 4. THE HANDSHAKE
-    // Using the relative path '/api/deploy' requires 'vite.config.js' proxy to be active!
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
     const response = await fetch(`${API_BASE_URL}/api/deploy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
+    clearTimeout(timeout);
 
-    // 5. HANDLING THE RESPONSE
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Server reached but failed to start deployment");
+        throw new Error(errorData.error || `Server error ${response.status}`);
     }
 
     const result = await response.json();
@@ -606,7 +626,6 @@ useEffect(() => {
         ...prev, 
         { status: 'success', message: '🚀 Deployment initiated! Watch your Telegram chat for updates.' }
       ]);
-      // Cache the token info BEFORE wiping it in the poll
       setDeployResult({ 
         tokenAddress: "Awaiting Mint...",
         tokenName: tokenName.trim(),
@@ -618,9 +637,10 @@ useEffect(() => {
 
   } catch (err) {
     console.error("API Error:", err);
+    const msg = err.name === 'AbortError' ? 'Request timed out (30s). Check your Telegram for deployment status.' : err.message;
     setLogs(prev => [
       ...prev, 
-      { status: 'failed', message: `❌ Connection Error: ${err.message}` }
+      { status: 'failed', message: `❌ Connection Error: ${msg}` }
     ]);
     setIsDeploying(false);
   }
