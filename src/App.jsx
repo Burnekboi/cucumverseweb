@@ -192,7 +192,7 @@ const WalletCard = ({ wallet, isSelected, onSelect }) => {
   );
 };
 
-const TradeConfigModal = ({ visible, onClose, config, setConfig }) => {
+const TradeConfigModal = ({ visible, onClose, config, setConfig, onSave }) => {
   if (!visible) return null;
   const fields = [
     { label: 'Slippage (%)', key: 'slippage', step: '0.1' },
@@ -222,7 +222,7 @@ const TradeConfigModal = ({ visible, onClose, config, setConfig }) => {
             </div>
           ))}
         </div>
-        <button onClick={onClose} className="w-full bg-green-600 py-4 rounded-xl text-white font-bold">Save Settings</button>
+        <button onClick={onSave} className="w-full bg-green-600 py-4 rounded-xl text-white font-bold">Save Settings</button>
       </motion.div>
     </div>
   );
@@ -267,7 +267,7 @@ const LogScreen = ({ logs, onStop, onSellAll, onClear }) => {
           <span>✋</span> Stop
         </button>
         <button onClick={onSellAll} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-xs uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-          <span>💥</span> Sell All
+          <span>💥</span> Dump
         </button>
         <button onClick={onClear} className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 rounded-lg text-xs uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
           <span>🧹</span> Clear
@@ -339,7 +339,7 @@ export default function App() {
   const [balance, setBalance] = useState(0);
 
   // Configuration
-  const [tradeConfig, setTradeConfig] = useState({ slippage: '1.0', minBuy: '0.01', maxBuy: '0.1', takeProfit: '50', sellPercent: '100' });
+  const [tradeConfig, setTradeConfig] = useState({ slippage: '5', minBuy: '0.01', maxBuy: '0.05', takeProfit: '20', sellPercent: '20' });
   const [showTradeConfig, setShowTradeConfig] = useState(false);
 
   // UI Flow
@@ -367,6 +367,28 @@ useEffect(() => {
     if (!isNaN(p)) setBalance(p);
   }
   if (urlBots) try { setWallets(JSON.parse(atob(urlBots))); } catch (e) { console.error("Bot Handshake fail"); }
+
+  // Load trade config from bot session
+  const loadTradeConfig = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/trade-config/${window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 1897768020}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.config) {
+          setTradeConfig({
+            slippage: String(data.config.slippage),
+            minBuy: String(data.config.minBuy),
+            maxBuy: String(data.config.maxBuy),
+            takeProfit: String(data.config.takeProfit),
+            sellPercent: String(data.config.sellPercent),
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Trade config load error:", e);
+    }
+  };
+  loadTradeConfig();
 
   const syncDashboard = async () => {
   // If we don't even have the main address yet, don't bother the RPC
@@ -601,6 +623,19 @@ useEffect(() => {
     setIsDeploying(false);
   }
 };
+
+  const handleSaveTradeConfig = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/api/trade-config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId: detectedChatId, config: tradeConfig })
+      });
+    } catch (e) {
+      console.error("Save trade config error:", e);
+    }
+    setShowTradeConfig(false);
+  };
 
   const handleImageUpload = () => {
     const input = document.createElement('input');
@@ -839,7 +874,7 @@ useEffect(() => {
     </div> {/* This closes the relative z-10 w-full max-w-2xl container */}
 
     {/* Modals & Overlays (Outside main layout but inside root div) */}
-    <TradeConfigModal visible={showTradeConfig} onClose={() => setShowTradeConfig(false)} config={tradeConfig} setConfig={setTradeConfig} />
+    <TradeConfigModal visible={showTradeConfig} onClose={() => setShowTradeConfig(false)} config={tradeConfig} setConfig={setTradeConfig} onSave={handleSaveTradeConfig} />
 
     <AnimatePresence>
       {showDeployConfirm && (
