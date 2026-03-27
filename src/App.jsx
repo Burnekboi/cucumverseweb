@@ -416,26 +416,27 @@ useEffect(() => {
     setBalance(p => (mB === 0 && p > 0) ? p : mB);
 
     // Only sync if we actually have wallets in state
-    setWallets(async (prev) => {
-      if (!prev || prev.length === 0) return prev; // Don't sync an empty fleet
-      
-      const conn = getSmartConnection();
-      const updated = await Promise.all(prev.map(async (w) => {
-        let b = 0;
-        try {
-           const resBot = await fetch(`${API_BASE_URL}/api/balance/${w.address}`);
-           if (resBot.ok) {
+    setWallets(prev => {
+      if (!prev || prev.length === 0) return prev;
+      // Kick off async update separately
+      (async () => {
+        const conn = getSmartConnection();
+        const updated = await Promise.all(prev.map(async (w) => {
+          let b = 0;
+          try {
+            const resBot = await fetch(`${API_BASE_URL}/api/balance/${w.address}`);
+            if (resBot.ok) {
               const d = await resBot.json();
               b = d.balance || 0;
-           } else throw new Error();
-        } catch(e) {
-           b = await getSolanaBalance(conn, w.address);
-        }
-        return { ...w, balance: (b === 0 && w.balance > 0) ? w.balance : b };
-      }));
-      
-      setWallets(updated);
-      return updated;
+            } else throw new Error();
+          } catch (e) {
+            b = await getSolanaBalance(conn, w.address);
+          }
+          return { ...w, balance: (b === 0 && w.balance > 0) ? w.balance : b };
+        }));
+        setWallets(updated);
+      })();
+      return prev; // return unchanged for now; async update will re-render
     });
   } catch (err) {
     console.error("Sync error:", err);
