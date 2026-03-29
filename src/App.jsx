@@ -342,6 +342,7 @@ export default function App() {
   const [autoBuy, setAutoBuy] = useState(false);
   const [jitoBundle, setJitoBundle] = useState(false);
   const [initialBuyAmount, setInitialBuyAmount] = useState('0.1');
+  const [estimatedTokens, setEstimatedTokens] = useState(null);
 
   // Socials
   const [twitter, setTwitter] = useState('');
@@ -726,6 +727,29 @@ useEffect(() => {
     input.click();
   };
 
+  const handleInitialBuyChange = async (value) => {
+    setInitialBuyAmount(value);
+    
+    // Fetch token estimate for valid SOL amounts
+    const solAmount = parseFloat(value);
+    if (solAmount > 0 && !isNaN(solAmount)) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/token-estimate/${solAmount}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            setEstimatedTokens(data.estimatedTokens);
+          }
+        }
+      } catch (e) {
+        console.error('Token estimate error:', e);
+        setEstimatedTokens(null);
+      }
+    } else {
+      setEstimatedTokens(null);
+    }
+  };
+
   return (
   <div className="min-h-screen w-full bg-[#020202] text-zinc-100 selection:bg-emerald-500/30 font-sans relative overflow-x-hidden">
     {/* Dynamic Background */}
@@ -975,7 +999,17 @@ useEffect(() => {
               <div className="flex justify-between text-sm"><span className="text-zinc-500">Bots</span><span className="text-emerald-400 font-bold">{selectedWalletIds.size} Active</span></div>
               <div className="text-left">
                 <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Initial Buy (SOL)</label>
-                <input type="number" className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm" value={initialBuyAmount} onChange={e => setInitialBuyAmount(e.target.value)} />
+                <input 
+                  type="number" 
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm" 
+                  value={initialBuyAmount} 
+                  onChange={e => handleInitialBuyChange(e.target.value)} 
+                />
+                {estimatedTokens && (
+                  <div className="mt-2 text-xs text-emerald-400 font-mono">
+                    ~{estimatedTokens} tokens
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-3">
