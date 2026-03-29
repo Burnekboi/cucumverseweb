@@ -561,6 +561,10 @@ useEffect(() => {
 
   const handleDeployClick = () => {
     if (!tokenName || !symbol) return alert("Please fill in Token Name and Symbol");
+    // Pre-fetch estimate so it's ready when the modal opens
+    if (parseFloat(initialBuyAmount) > 0) {
+      handleInitialBuyChange(initialBuyAmount);
+    }
     setShowDeployConfirm(true);
   };
 
@@ -997,19 +1001,49 @@ useEffect(() => {
             <div className="space-y-4 mb-8 text-left">
               <div className="flex justify-between text-sm"><span className="text-zinc-500">Token</span><span className="text-white font-bold">{tokenName} (${symbol})</span></div>
               <div className="flex justify-between text-sm"><span className="text-zinc-500">Bots</span><span className="text-emerald-400 font-bold">{selectedWalletIds.size} Active</span></div>
-              <div className="text-left">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Initial Buy (SOL)</label>
-                <input 
-                  type="number" 
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm" 
-                  value={initialBuyAmount} 
-                  onChange={e => handleInitialBuyChange(e.target.value)} 
-                />
-                {estimatedTokens && (
-                  <div className="mt-2 text-xs text-emerald-400 font-mono">
-                    ~{estimatedTokens} tokens
+              {/* ── Dev Buy Preview Card ── */}
+            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Dev Buy (SOL)</span>
+                <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider flex items-center gap-1">
+                  <span>✅</span> First Buyer Guaranteed
+                </span>
+              </div>
+
+              {/* SOL input */}
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm font-mono focus:border-emerald-500 outline-none transition-colors"
+                value={initialBuyAmount}
+                onChange={e => handleInitialBuyChange(e.target.value)}
+              />
+
+              {/* Token estimate display */}
+              {estimatedTokens ? (
+                <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3">
+                  <div className="text-left">
+                    <p className="text-[9px] font-black text-emerald-500/70 uppercase tracking-widest mb-0.5">Estimated Tokens</p>
+                    <p className="text-lg font-black text-emerald-400 font-mono leading-none">
+                      ~{Number(estimatedTokens).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                    </p>
                   </div>
-                )}
+                  <div className="text-right">
+                    <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-0.5">Dev Wallet</p>
+                    <p className="text-xs font-bold text-white">👑 You</p>
+                  </div>
+                </div>
+              ) : parseFloat(initialBuyAmount) > 0 ? (
+                <div className="flex items-center gap-2 px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800">
+                  <div className="w-3 h-3 border border-emerald-500/40 border-t-emerald-500 rounded-full animate-spin" />
+                  <span className="text-[10px] text-zinc-500 font-mono">Calculating estimate...</span>
+                </div>
+              ) : (
+                <div className="px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800 text-center">
+                  <span className="text-[10px] text-zinc-600 font-mono">Enter SOL amount to see token estimate</span>
+                </div>
+              )}
               </div>
             </div>
             <div className="flex gap-3">
