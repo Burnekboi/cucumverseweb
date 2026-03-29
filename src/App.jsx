@@ -731,24 +731,21 @@ useEffect(() => {
     input.click();
   };
 
-  const handleInitialBuyChange = async (value) => {
+  const handleInitialBuyChange = (value) => {
     setInitialBuyAmount(value);
-    
-    // Fetch token estimate for valid SOL amounts
-    const solAmount = parseFloat(value);
-    if (solAmount > 0 && !isNaN(solAmount)) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/token-estimate/${solAmount}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            setEstimatedTokens(data.estimatedTokens);
-          }
-        }
-      } catch (e) {
-        console.error('Token estimate error:', e);
-        setEstimatedTokens(null);
-      }
+
+    // Instant client-side estimate using pump.fun's actual initial reserves:
+    //   virtualSolReserves  = 30 SOL  (30_000_000_000 lamports)
+    //   virtualTokenReserves = 1,073,000,191 tokens × 10^6 decimals
+    // tokens_out = (tokenReserves × solIn) / (solReserves + solIn)
+    const sol = parseFloat(value);
+    if (sol > 0 && !isNaN(sol)) {
+      const solLamports       = BigInt(Math.floor(sol * 1e9));
+      const VIRT_SOL          = BigInt(30_000_000_000);
+      const VIRT_TOKS         = BigInt(1_073_000_191) * BigInt(1_000_000);
+      const rawTokens         = (VIRT_TOKS * solLamports) / (VIRT_SOL + solLamports);
+      const uiTokens          = Number(rawTokens) / 1e6;
+      setEstimatedTokens(uiTokens.toLocaleString('en-US', { maximumFractionDigits: 0 }));
     } else {
       setEstimatedTokens(null);
     }
@@ -1026,18 +1023,13 @@ useEffect(() => {
                   <div className="text-left">
                     <p className="text-[9px] font-black text-emerald-500/70 uppercase tracking-widest mb-0.5">Estimated Tokens</p>
                     <p className="text-lg font-black text-emerald-400 font-mono leading-none">
-                      ~{Number(estimatedTokens).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                      ~{estimatedTokens}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-0.5">Dev Wallet</p>
                     <p className="text-xs font-bold text-white">👑 You</p>
                   </div>
-                </div>
-              ) : parseFloat(initialBuyAmount) > 0 ? (
-                <div className="flex items-center gap-2 px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800">
-                  <div className="w-3 h-3 border border-emerald-500/40 border-t-emerald-500 rounded-full animate-spin" />
-                  <span className="text-[10px] text-zinc-500 font-mono">Calculating estimate...</span>
                 </div>
               ) : (
                 <div className="px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800 text-center">
