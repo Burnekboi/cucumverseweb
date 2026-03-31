@@ -269,11 +269,23 @@ const WalletItem = ({ wallet, isSelected, onSelect }) => {
 };
 
 // LIVE TERMINAL LOGS COMPONENT
-const LogScreen = ({ logs, onStop, onSellAll, onClear }) => {
+const LogScreen = ({ logs, onStop, onSellAll, onClear, onDevSell100, onDevSell50, onDevSellCustom }) => {
   const scrollRef = useRef(null);
+  const [showDevSellMenu, setShowDevSellMenu] = React.useState(false);
+  const [customPercent, setCustomPercent] = React.useState('');
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [logs]);
+
+  const handleDevSellCustom = () => {
+    const percent = parseInt(customPercent);
+    if (percent >= 1 && percent <= 99) {
+      onDevSellCustom(percent);
+      setShowDevSellMenu(false);
+      setCustomPercent('');
+    }
+  };
 
   return (
     <div className="flex flex-col w-full gap-3 animate-in fade-in duration-500">
@@ -284,6 +296,50 @@ const LogScreen = ({ logs, onStop, onSellAll, onClear }) => {
         <button onClick={onSellAll} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg text-xs uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
           <span>💥</span> Dump
         </button>
+        <div className="relative">
+          <button 
+            onClick={() => setShowDevSellMenu(!showDevSellMenu)} 
+            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg text-xs uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <span>🔥</span> Dev Sell
+          </button>
+          
+          {showDevSellMenu && (
+            <div className="absolute bottom-full mb-2 left-0 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl p-2 min-w-[200px] z-10">
+              <button 
+                onClick={() => { onDevSell100(); setShowDevSellMenu(false); }} 
+                className="w-full text-left px-3 py-2 text-white hover:bg-zinc-700 rounded text-sm flex items-center gap-2"
+              >
+                <span>💰</span> 100%
+              </button>
+              <button 
+                onClick={() => { onDevSell50(); setShowDevSellMenu(false); }} 
+                className="w-full text-left px-3 py-2 text-white hover:bg-zinc-700 rounded text-sm flex items-center gap-2"
+              >
+                <span>💸</span> 50%
+              </button>
+              <div className="border-t border-zinc-700 pt-2 mt-1">
+                <div className="px-3 py-1">
+                  <input
+                    type="number"
+                    placeholder="Custom %"
+                    value={customPercent}
+                    onChange={(e) => setCustomPercent(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1 text-white text-sm"
+                    min="1"
+                    max="99"
+                  />
+                </div>
+                <button 
+                  onClick={handleDevSellCustom}
+                  className="w-full text-left px-3 py-2 text-white hover:bg-zinc-700 rounded text-sm flex items-center gap-2"
+                >
+                  <span>🔢</span> Custom
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         <button onClick={onClear} className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 rounded-lg text-xs uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
           <span>🧹</span> Clear
         </button>
@@ -539,6 +595,54 @@ useEffect(() => {
         setLogs(prev => [...prev, { status: 'success', isSell: true, message: '💥 Dump initialized. Ready for new token.' }]);
       } catch (e) {
         console.error("Sell error:", e);
+      }
+    }
+  };
+
+  const handleDevSell100 = async () => {
+    if(window.confirm("ARE YOU SURE? This will sell 100% of dev wallet tokens immediately.")) {
+      try {
+        await fetch(`${API_BASE_URL}/api/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId: detectedChatId, action: 'DEV_SELL_100' })
+        });
+        setLogs(prev => [...prev, { status: 'success', isSell: true, message: '🔥 Dev sell 100% initiated.' }]);
+      } catch (e) {
+        console.error("Dev sell error:", e);
+        setLogs(prev => [...prev, { status: 'failed', message: '❌ Dev sell failed: ' + e.message }]);
+      }
+    }
+  };
+
+  const handleDevSell50 = async () => {
+    if(window.confirm("ARE YOU SURE? This will sell 50% of dev wallet tokens immediately.")) {
+      try {
+        await fetch(`${API_BASE_URL}/api/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId: detectedChatId, action: 'DEV_SELL_50' })
+        });
+        setLogs(prev => [...prev, { status: 'success', isSell: true, message: '🔥 Dev sell 50% initiated.' }]);
+      } catch (e) {
+        console.error("Dev sell error:", e);
+        setLogs(prev => [...prev, { status: 'failed', message: '❌ Dev sell failed: ' + e.message }]);
+      }
+    }
+  };
+
+  const handleDevSellCustom = async (percent) => {
+    if(window.confirm(`ARE YOU SURE? This will sell ${percent}% of dev wallet tokens immediately.`)) {
+      try {
+        await fetch(`${API_BASE_URL}/api/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId: detectedChatId, action: 'DEV_SELL_CUSTOM', sellPercent: percent })
+        });
+        setLogs(prev => [...prev, { status: 'success', isSell: true, message: `🔥 Dev sell ${percent}% initiated.` }]);
+      } catch (e) {
+        console.error("Dev sell error:", e);
+        setLogs(prev => [...prev, { status: 'failed', message: '❌ Dev sell failed: ' + e.message }]);
       }
     }
   };
@@ -971,7 +1075,15 @@ useEffect(() => {
               </div>
             </div>
           ) : (
-            <LogScreen logs={logs} onStop={handleStop} onSellAll={handleSellAll} onClear={() => setLogs([])} />
+            <LogScreen 
+              logs={logs} 
+              onStop={handleStop} 
+              onSellAll={handleSellAll} 
+              onClear={() => setLogs([])}
+              onDevSell100={handleDevSell100}
+              onDevSell50={handleDevSell50}
+              onDevSellCustom={handleDevSellCustom}
+            />
           )}
 
           {isTrading && (
